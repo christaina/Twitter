@@ -1,44 +1,7 @@
-<!DOCTYPE html>
-<meta charset='utf-8'>
-<style>
-
-body {
-  font-family: sans-serif, Arial;
-  font-size: 12px;
-  font-weight: bold;
-}
-.links line {
-  stroke: #999;
-  stroke-opacity: 0.6;
-}
-
-.nodes circle {
-  stroke: #fff;
-  stroke-width: 1.5px;
-}
-
-path {
-  fill-opacity: .1;
-  stroke-opacity: 1;
-}
-
-</style>
-<div id="scaleFactorSettings">
-  <p>Scale of the groups: <span id='scaleFactorLabel'>1.2</span></p>
-  <input type="range" min="1" max="3" value="1.2" step=".1"
-    oninput="scaleFactor = value; d3.select('#scaleFactorLabel').text(scaleFactor); updateGroups()">
-</div>
-<div id="curveSettings">
-  <p>Type of curve: <span id='curveLabel'>curveCatmullRomClosed</span></p>
-</div>
-<svg width='1800' height='1800'></svg>
-<script src='https://d3js.org/d3.v4.min.js'></script>
-<script>
-
 var svg = d3.select('svg'),
-    radius = d3.scaleSqrt().range([0, 6]), // LK
     width = +svg.attr('width'),
     height = +svg.attr('height'),
+    radius = d3.scaleSqrt().range([0, 6]), // LK
     color = d3.scaleOrdinal(d3.schemeCategory20),
     valueline = d3.line()
       .x(function(d) { return d[0]; })
@@ -51,25 +14,20 @@ var svg = d3.select('svg'),
     polygon,
     centroid,
     node,
+    circles,
+    lables,
     link,
     curveTypes = ['curveBasisClosed', 'curveCardinalClosed', 'curveCatmullRomClosed', 'curveLinearClosed'],
-    // simulation = d3.forceSimulation()
-    //   .force('link', d3.forceLink().id(function(d) { return d.id; }))
-    //   .force('charge', d3.forceManyBody().strength(-300))
-    //   .force('center', d3.forceCenter(width / 2, height / 2));
-
     simulation = d3.forceSimulation()
-        .force("link",
-               d3.forceLink().id(function(d) { return d.id; })
-               	.distance(function(d) { return radius(d.source.value / 2) + radius(d.target.value / 2); })
-              .strength(function(d) {return 0.5; })
-              )
-        .force("charge", d3.forceManyBody().strength(-6000))
-    		.force("collide", d3.forceCollide().radius(function(d) { return radius(d.value / 2) + 2; }))
-        .force("center", d3.forceCenter(width / 2, height / 2));
+      .force('link', d3.forceLink().id(function(d) { return d.id; })
+        .distance(function(d) { return radius(d.source.value / 2) + radius(d.target.value / 2); })
+              .strength(function(d) {return 0.5; }))
+      .force('charge', d3.forceManyBody().strength(-2000))
+      .force("collide", d3.forceCollide().radius(function(d) { return radius(d.value / 2) + 2; }))
+      .force('center', d3.forceCenter(width / 2, height / 2));
 
 
-d3.json('bk_graph.json', function(error, graph) {
+d3.json(document.getElementById('graphname').getAttribute('value'), function(error, graph) {
   if (error) throw error;
 
   // create selector for curve types
@@ -78,6 +36,8 @@ d3.json('bk_graph.json', function(error, graph) {
     .attr('class','select')
     .on('change', function() {
       var val = d3.select('select').property('value');
+      console.log(val);
+      console.log(d3[val]);
       d3.select('#curveLabel').text(val);
       valueline.curve(d3[val]);
       updateGroups();
@@ -90,40 +50,35 @@ d3.json('bk_graph.json', function(error, graph) {
 
 
   // create groups, links and nodes
-  var groups = svg.append('g').attr('class', 'groups');
+  groups = svg.append('g').attr('class', 'groups');
 
   link = svg.append('g')
       .attr('class', 'links')
     .selectAll('line')
     .data(graph.links)
     .enter().append('line')
-      .attr('stroke-width', function(d) { return Math.sqrt(d.weight*.05); });//LK altered
+      .attr('stroke-width', function(d) { return Math.sqrt(d.weight) * 0.1;});
 
-  node = svg.append('g')
-      .attr('class', 'nodes')
-    .selectAll('circle')
-    .data(graph.nodes)
-    // .enter().append('circle')
-    //   .attr('r', function(d) { return radius(d.value / .5); }) //LK altered
-    //   .attr('fill', function(d) { return color(d.group); })
-    //   .style('transform-origin', '50% 50%')
-    //   .call(d3.drag()
-    //       .on('start', dragstarted)
-    //       .on('drag', dragged)
-    //       .on('end', dragended));
+    node = svg.append("g")
+              .attr("class", "nodes")
+            .selectAll("g")
+            .data(graph.nodes)
+            .enter().append("g")
+    
+    circles = node.append("circle")
+      .attr("r", function(d){return radius(d.value / 3);})
+      .attr("fill", function(d) { return color(d.group); })
+      .call(d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended));
 
-  node.enter().append('circle')
-    .attr('r', function(d) { return radius(d.value / .5); }) //LK altered
-    .attr('fill', function(d) { return color(d.group); })
-    .style('transform-origin', '50% 50%')
-    .call(d3.drag()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended));
-
-  // node.
-
-
+    lables = node.append("text")
+      .text(function(d) {
+        return d.name;
+      })
+      .attr('x', 6)
+      .attr('y', 3);
 
   // count members of each group. Groups with less
   // than 3 member will not be considered (creating
@@ -131,10 +86,9 @@ d3.json('bk_graph.json', function(error, graph) {
   groupIds = d3.set(graph.nodes.map(function(n) { return +n.group; }))
     .values()
     .map( function(groupId) {
-	    console.log(graph.nodes.filter(function(n){return +n.group == groupId}));
-      return {
+      return { 
         groupId : groupId,
-        count : graph.nodes.filter(function(n) { console.log(+n.group); return +n.group == groupId; }).length
+        count : graph.nodes.filter(function(n) { return +n.group == groupId; }).length
       };
     })
     .filter( function(group) { return group.count > 2;})
@@ -178,11 +132,16 @@ d3.json('bk_graph.json', function(error, graph) {
         .attr('y1', function(d) { return d.source.y; })
         .attr('x2', function(d) { return d.target.x; })
         .attr('y2', function(d) { return d.target.y; });
-    node
-        .attr('cx', function(d) { return d.x; })
-        .attr('cy', function(d) { return d.y; });
+    //node
+    //    .attr('cx', function(d) { return d.x; })
+    //    .attr('cy', function(d) { return d.y; });
 
-    //updateGroups();
+    node
+        .attr("transform", function(d) {
+          return "translate(" + d.x + "," + d.y + ")";
+        })
+    
+    updateGroups();
   }
 
 });
@@ -193,16 +152,11 @@ d3.json('bk_graph.json', function(error, graph) {
 // and return the convex hull of the specified points
 // (3 points as minimum, otherwise returns null)
 var polygonGenerator = function(groupId) {
-  console.log('node:')
-  console.log(node);
   var node_coords = node
-    .filter(function(d) {console.log('ng'); console.log(d.group); return d.group == groupId; })
+    .filter(function(d) { return d.group == groupId; })
     .data()
     .map(function(d) { return [d.x, d.y]; });
-
-    console.log('node coords')
-    console.log(node_coords);
-
+    
   return d3.polygonHull(node_coords);
 };
 
@@ -210,15 +164,12 @@ var polygonGenerator = function(groupId) {
 
 function updateGroups() {
   groupIds.forEach(function(groupId) {
-    console.log(groupId);
-    var path = paths.filter(function(d) {return d == groupId;})
+    var path = paths.filter(function(d) { return d == groupId;})
       .attr('transform', 'scale(1) translate(0,0)')
       .attr('d', function(d) {
-        polygon = polygonGenerator(d);
-
-        console.log(polygon);
+        polygon = polygonGenerator(d);          
         centroid = d3.polygonCentroid(polygon);
-        console.log(centroid);
+
         // to scale the shape properly around its points:
         // move the 'g' element to the centroid point, translate
         // all the path around the center of the 'g' and then
@@ -272,5 +223,3 @@ function group_dragended(groupId) {
   if (!d3.event.active) simulation.alphaTarget(0.3).restart();
   d3.select(this).select('path').style('stroke-width', 1);
 }
-
-</script>

@@ -1,0 +1,26 @@
+ 
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="scaleFactorSettings">
+  <p>Scale of the groups: <span id='scaleFactorLabel'>1.2</span></p>
+  <input type="range" min="1" max="3" value="1.2" step=".1"
+    oninput="scaleFactor = value; d3.select('#scaleFactorLabel').text(scaleFactor); updateGroups()">
+</div>
+
+
+
+<div id="curveSettings">
+  <p>Type of curve: <span id='curveLabel'>curveCatmullRomClosed</span></p>
+</div>
+<svg width='1800' height='1800'></svg>
+
+<div id="graphname" value="../data/bx_graph.json"></div>
+
+<script src='https://d3js.org/d3.v4.min.js'></script>
+<script type="text/javascript" src="js/groups.js"></script>
+</html>
